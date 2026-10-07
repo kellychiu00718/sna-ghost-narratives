@@ -14,7 +14,7 @@ A course project (KAIST, Fall 2025, Statistical Analysis of Social Network Data)
 Ghost stories posted online as real experiences record what people actually did: whom they asked for help, what failed and what worked. Folklore studies usually count motifs or topics. I wanted to ask the question from the other side, using network structure: in each culture, who holds the power to solve the problem, and does that change as the story unfolds?
 
 ## My role
-I built the corpus and chose the stories. I annotated every character and relationship by hand. I designed the three-stage network approach and ran the analysis in R. I also wrote the paper and poster, and presented it in a 3-minute English talk. The professor and TAs scored the class projects, and this one ranked 1st among 10+. I used Claude Code as a coding assistant.
+I built the corpus and chose the stories. I annotated every character and relationship by hand. I designed the three-stage network approach and ran the analysis in R. I also wrote the paper and poster, and presented it in a 3-minute English talk. The professor, TAs and classmates scored the class projects, and this one ranked 1st among 10+. I used Claude Code as a coding assistant.
 
 ## Data
 - Source corpus: ghost-experience posts from PTT (15,759), TheQoo (967) and Reddit (5,667).
