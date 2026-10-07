@@ -1,0 +1,111 @@
+Node_ID,Story_ID,Label,Gender,Species,Role,color,Culture
+TW01_Protagonist1,TW01,毛哥(我),M,Human,Protagonist,None,TW
+TW01_Protagonist2,TW01,狗子,M,Human,Victim,None,TW
+TW01_Mediator,TW01,收音機,U,Object,Mediator,None,TW
+TW01_Ghost,TW01,廣播聲音(新聞播報員),U,Ghost,Perpetrator,None,TW
+TW01_Helper,TW01,狗子爸,M,Human,Helper,None,TW
+TW01_Authority,TW01,收驚師父,M,Human,Authority,None,TW
+TW02_Protagonist,TW02,原PO(我),F,Human,Protagonist,None,TW
+TW02_Victim,TW02,T男,M,Human,Victim,None,TW
+TW02_Instigator,TW02,W女,F,Human,Victim,None,TW
+TW02_Helper,TW02,Y女,F,Human,Helper,None,TW
+TW02_Game,TW02,守護神遊戲(手/紙),U,Object,Mediator,None,TW
+TW02_Ghosts,TW02,霧/30個靈體,U,Ghost,Perpetrator,None,TW
+TW02_Authority,TW02,廟裡神明/辦事人員,U,Deity,Authority,None,TW
+TW02_Talisman,TW02,符咒,U,Object,Mediator,None,TW
+TW02_Grandpa,TW02,T男爺爺,M,Human,Helper,None,TW
+TW03_Protagonist,TW03,原PO (cocawowa),M,Human,Protagonist,None,TW
+TW03_Authority,TW03,師父,M,Human,Authority,None,TW
+TW03_Mom,TW03,媽媽,F,Human,Helper,None,TW
+TW03_Builder,TW03,建商老闆,M,Human,Mediator,None,TW
+TW03_Deity,TW03,三太子,M,Deity,Authority,None,TW
+TW03_Uncle,TW03,叔叔,M,Human,Victim,None,TW
+TW03_BossWife,TW03,老闆娘,F,Human,Helper,None,TW
+TW03_Consultant,TW03,顧問(教授),M,Human,Protagonist,None,TW
+TW04_Protagonist,TW04,原PO(哥哥),M,Human,Protagonist,None,TW
+TW04_Victim,TW04,弟弟,M,Human,Victim,None,TW
+TW04_Ghost,TW04,白衣短髮女鬼,F,Ghost,Perpetrator,White,TW
+TW04_Authority,TW04,收驚阿伯,M,Human,Authority,None,TW
+TW04_Mom,TW04,媽媽,F,Human,Helper,None,TW
+TW04_Senior,TW04,學長,M,Human,Helper,None,TW
+TW05_Narrator,TW05,原PO(我),U,Human,Protagonist,None,TW
+TW05_Cousin,TW05,表姊,F,Human,Victim,None,TW
+TW05_Husband,TW05,表姊老公,M,Human,Victim,None,TW
+TW05_Grandma,TW05,婆婆,F,Human,Perpetrator,None,TW
+TW05_Child,TW05,小女兒,F,Human,Victim,None,TW
+TW05_Authority,TW05,道士長輩,M,Human,Authority,None,TW
+TW05_Ancestors,TW05,雙方祖先,U,Ghost,Perpetrator,None,TW
+KR01_Protagonist,KR01,原PO,U,Human,Protagonist,None,KR
+KR01_Dad,KR01,爸爸,M,Human,Victim,None,KR
+KR01_Mom,KR01,媽媽,F,Human,Helper,None,KR
+KR01_Cousin,KR01,堂哥,M,Human,Victim,None,KR
+KR01_landlord,KR01,房東,U,Human,Perpetrator,None,KR
+KR01_Ghost,KR01,房子的妖怪,U,Ghost,Perpetrator,None,KR
+KR01_Shaman1,KR01,寫符咒的巫師,U,Human,Authority,None,KR
+KR01_Talisman,KR01,符咒,U,Object,Mediator,None,KR
+KR01_Tenants,KR01,一樓房客群,U,Human,Victim,None,KR
+KR01_Monk,KR01,和尚,M,Human,Authority,None,KR
+KR01_Shaman2,KR01,路過的巫師,U,Human,Authority,None,KR
+KR01_NewOwner,KR01,新屋主女兒,F,Human,Victim,None,KR
+KR02_Protagonist,KR02,原PO(前輩),M,Human,Protagonist,None,KR
+KR02_Shaman,KR02,巫師後輩,M,Human,Authority,None,KR
+KR02_Officer,KR02,值星官,M,Human,Helper,None,KR
+KR02_Victim,KR02,自殺士兵,M,Human,Victim,None,KR
+KR03_Protagonist,KR03,原PO,F,Human,Protagonist,None,KR
+KR03_P_Bully,KR03,P某(霸凌者),M,Human,Victim,None,KR
+KR03_A_Student,KR03,A同學,M,Human,Victim,None,KR
+KR03_Game,KR03,筆仙(紙/筆),U,Object,Mediator,None,KR
+KR03_Ghost,KR03,筆仙/黑影女,F,Ghost,Perpetrator,Black,KR
+KR03_Shaman,KR03,巫婆阿姨,F,Human,Authority,None,KR
+KR04_Protagonist,KR04,原PO,F,Human,Protagonist,None,KR
+KR04_Dad,KR04,爸爸,M,Human,Victim,None,KR
+KR04_Mom,KR04,媽媽,F,Human,Helper,None,KR
+KR04_Neighbor,KR04,鄰居阿姨,F,Human,Mediator,None,KR
+KR04_GreatAunt,KR04,姑婆,F,Human,Helper,None,KR
+KR04_Shaman,KR04,老師(巫師),U,Human,Authority,None,KR
+KR04_Ghost,KR04,祖先/煞氣,U,Ghost,Perpetrator,None,KR
+KR05_Aunt,KR05,姑姑,F,Human,Victim,None,KR
+KR05_Husband,KR05,姑丈,M,Human,Victim,None,KR
+KR05_Mom,KR05,我媽,F,Human,Helper,None,KR
+KR05_Guard,KR05,管理員,M,Human,Helper,None,KR
+KR05_Ghost,KR05,天花板倒掛鬼,U,Ghost,Perpetrator,None,KR
+KR05_Shaman,KR05,巫師,U,Human,Authority,None,KR
+US01_Narrator,US01,Reddit OP,U,Human,Mediator,None,US
+US01_Client1,US01,Possessed Woman,F,Human,Victim,None,US
+US01_Ghost1,US01,Boy Spirit,M,Ghost,Perpetrator,None,US
+US01_Minister,US01,Local Minister,M,Human,Authority,None,US
+US01_Client2,US01,Possessed Boy,M,Human,Victim,None,US
+US01_Parents,US01,Boy's Parents,U,Human,Helper,None,US
+US01_Ghost2,US01,Woman in White,F,Ghost,Perpetrator,White,US
+US01_Sage,US01,White Sage,U,Object,Mediator,White,US
+US02_Protagonist,US02,OP,F,Human,Protagonist,None,US
+US02_Dad,US02,爸爸,M,Human,Victim,None,US
+US02_Mom,US02,媽媽,F,Human,Helper,None,US
+US02_Aunt,US02,姑姑,F,Human,Helper,None,US
+US02_Demon,US02,黑影惡魔,M,Ghost,Perpetrator,Black,US
+US02_Priest,US02,牧師,M,Human,Authority,None,US
+US02_Friend,US02,爸爸的朋友,M,Human,Helper,None,US
+US02_Stereo,US02,音響系統,U,Object,Mediator,None,US
+US02_Clock,US02,時鐘,U,Object,Mediator,None,US
+US02_GreatGrandma,US02,曾祖母,F,Human,Protagonist,None,US
+US02_Shaman,US02,巫師(Witch),F,Human,Authority,None,US
+US02_Meat,US02,生肉,U,Object,Mediator,Red,US
+US03_Protagonist,US03,原PO(妻子),F,Human,Victim,None,US
+US03_MIL,US03,婆婆,F,Human,Victim,None,US
+US03_spiritual_teacher,US03,冥想老師,M,Human,Authority,None,US
+US03_Ghost,US03,中性靈體,U,Ghost,Perpetrator,None,US
+US03_Furniture,US03,二手家具,U,Object,Mediator,None,US
+US04_Protagonist,US04,Reddit OP,F,Human,Protagonist,None,US
+US04_Friend2,US04,Friend 2,F,Human,Victim,None,US
+US04_Wiccan,US04,Wiccan Friend,F,Human,Authority,None,US
+US04_Ghost,US04,Hospital Spirit,U,Ghost,Perpetrator,None,US
+US04_Ouija,US04,Ouija Board,U,Object,Mediator,None,US
+US04_Curse,US04,Curse on Wall,U,Object,Mediator,None,US
+US04_Candle,US04,candle,U,Object,Mediator,None,US
+US05_Protagonist,US05,Reddit OP,F,Human,Protagonist,None,US
+US05_friend,US05,鄰居Chuck,M,Human,Helper,None,US
+US05_Ghost,US05,自殺男鬼,M,Ghost,Perpetrator,None,US
+US05_Exorcist,US05,20年前驅魔師,U,Human,Authority,None,US
+US05_Sage,US05,鼠尾草,U,Object,Mediator,White,US
+US05_Son,US05,兒子,M,Human,Helper,None,US
+US05_Alexa,US05,Alexa音箱,U,Object,Mediator,None,US

@@ -1,0 +1,1442 @@
+---
+title: "SNA Final research"
+output: pdf
+---
+
+## setup
+
+```{r}
+
+library(igraph)
+library(tidyverse)
+library(ggraph)
+library(gridExtra)
+library(dplyr)
+
+library(ggplot2)
+library(grid)       # arrow()
+library(patchwork)  # 拼成三格
+library(forcats)
+
+# 讀取資料
+node_list <- read_csv("data/node_list.csv")
+
+edge_list <- read_csv("data/edge_list.csv")
+
+# 建立基礎 igraph 物件
+net <- graph_from_data_frame(
+  d = edge_list,
+  vertices = node_list,   
+  directed = TRUE
+)
+```
+
+## Visualization
+
+```{r}
+# 設定顏色與屬性
+V(net)$color_role <- case_when(
+  V(net)$Role == "Authority" ~ "#3498DB",   # Blue
+  V(net)$Role == "Mediator" ~ "#F1C40F",    # Yellow
+  V(net)$Role == "Perpetrator" ~ "#E74C3C", # Red
+  V(net)$Role == "Victim" ~ "#BDC3C7",      # Grey
+  V(net)$Role == "Helper" ~ "purple",       #purple
+  V(net)$Role == "Protagonist" ~ "#2ECC71", # Green
+  TRUE ~ "white"
+)
+
+E(net)$color_rel <- case_when(
+  E(net)$Relation_Type == "Positive" ~ "#2ECC71",
+  E(net)$Relation_Type == "Negative" ~ "#E74C3C",
+  TRUE ~ "#95A5A6"
+)
+
+# 子網絡
+tw_net <- induced_subgraph(net, V(net)$Culture == "TW")
+kr_net <- induced_subgraph(net, V(net)$Culture == "KR")
+us_net <- induced_subgraph(net, V(net)$Culture == "US")
+
+# 繪圖函數
+plot_culture <- function(sub_net, title) {
+  ggraph(sub_net, layout = "fr") + 
+    geom_edge_link(
+      aes(color = Relation_Type, width = Weight / 30),
+      alpha = 0.25,                        
+      arrow = arrow(length = unit(2, 'mm')),
+      end_cap = circle(0.8, 'mm'),
+      show.legend = TRUE
+    ) +
+    geom_node_point(
+      aes(color = Role),
+      size = 3,
+      alpha = 0.7
+    ) +
+    
+    #  Role
+    geom_node_text(aes(label = Role),
+                   repel = TRUE,
+                   size = 3,
+                   alpha = 0.8) +
+    
+    scale_edge_color_manual(values = c(
+      "Positive" = "#2ECC71",
+      "Negative" = "#E74C3C",
+      "Neutral"  = "#95A5A6"
+    )) +
+    scale_color_manual(values = c(
+      "Authority"    = "#3498DB",
+      "Mediator"     = "#F1C40F",
+      "Perpetrator"  = "#E74C3C",
+      "Victim"       = "#BDC3C7",
+      "Protagonist"  = "#2ECC71",
+      "Helper"       = "#8E44AD",
+    ))+
+    scale_edge_width(range = c(0.2, 1.2)) +
+    theme_void() +
+    labs(title = title) +
+    theme(
+      legend.position = "right",
+      # 調整 legend 標題（Role / Relation_Type）
+      legend.title = element_text(size = 10, face = "bold"),
+  
+       # 調整 legend 內容字體大小
+      legend.text  = element_text(size = 8),
+  
+      # 調整 legend 中 key（小圓點、小線條）大小
+      legend.key.height = unit(0.8, "lines"),
+      legend.key.width  = unit(1.0, "lines"),
+      
+      # white background
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.title = element_text(size = 15, face = "bold", hjust = 0.5)
+    )
+}
+
+# 出圖
+p1 <- plot_culture(tw_net, "Taiwan Network")
+p2 <- plot_culture(kr_net, "Korea Network")
+p3 <- plot_culture(us_net, "USA Network")
+
+p1
+p2
+p3
+```
+
+```{r}
+ggsave("TW_network.png", p1, width = 8, height = 6)
+ggsave("KR_network.png", p2, width = 8, height = 6)
+ggsave("US_network.png", p3, width = 8, height = 6)
+
+ggsave("TW_network.svg", p1, width = 10, height = 8)
+ggsave("KR_network.svg", p2, width = 10, height = 8)
+ggsave("US_network.svg", p3, width = 10, height = 8)
+```
+
+```{r}
+# 繪製 3x5 矩陣圖 quick grasp overview
+# 排列順序固定為 TW -> KR -> US
+edge_list$Weight <- as.numeric(edge_list$Weight)
+node_list$Culture <- factor(node_list$Culture, levels = c("TW", "KR", "US"))
+
+# plot the graph
+plot_single_story <- function(story_id) {
+  
+  # 篩選該故事的資料
+  sub_nodes <- node_list %>% dplyr::filter(Story_ID == story_id)
+  sub_edges <- edge_list %>% dplyr::filter(Story_ID == story_id)
+  
+  # 建立 igraph 物件
+  sub_net <- graph_from_data_frame(d = sub_edges, vertices = sub_nodes, directed = TRUE)
+  
+  # 計算 Degree (用來決定節點大小)
+  V(sub_net)$degree <- degree(sub_net, mode = "all")
+  
+  # 繪圖
+  p <- ggraph(sub_net, layout = "fr", niter = 2000) + 
+    
+    # 邊 (Edges)
+    geom_edge_link(aes(color = Relation_Type, width = Weight), 
+                   arrow = arrow(length = unit(2, 'mm'), type = "closed"), 
+                   end_cap = circle(6, 'mm'),
+                   alpha = 0.3) +
+    
+    # 節點 (Nodes)
+    geom_node_point(aes(color = Role, size = degree)) + 
+    
+    # 視覺設定
+    scale_edge_color_manual(values = c("Positive"="#2ECC71", "Negative"="#E74C3C", "Neutral"="#95A5A6")) +
+    scale_color_manual(values = c("Authority"="#3498DB", "Mediator"="#F1C40F", "Perpetrator"="#E74C3C", "Victim"="#95A5A6", "Protagonist"="#2ECC71", "Helper"="#8E44AD")) +
+    scale_edge_width(range = c(0.8, 2.5), guide = "none") + 
+    scale_size_continuous(range = c(3, 8), guide = "none") + 
+    
+    theme_void() +
+    labs(title = story_id) + # 標題只放 Story ID，簡潔
+    theme(
+      plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+      legend.position = "none", # 單張圖不放 Legend，拼貼時統一放一個大的就好
+      # white background
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA)
+    )
+  
+  return(p)
+}
+
+# 3. 批量生成與存檔迴圈
+all_stories <- unique(node_list$Story_ID)
+
+for (sid in all_stories) {
+  
+  p <- plot_single_story(sid)
+  
+  # 存為 SVG (向量圖，放大不失真)
+  ggsave(filename = paste0(sid, ".svg"), plot = p, width = 8, height = 6)
+  
+  # 也存一份 PNG 方便預覽
+  ggsave(filename = paste0(sid, ".png"), plot = p, width = 8, height = 6, dpi = 300)
+}
+```
+
+```{r}
+# ---------- Relation_Type legend ----------
+library(ggplot2)
+library(patchwork)
+
+p_relation <- ggplot() +
+  geom_segment(aes(x = 1, xend = 2, y = 1, yend = 1),
+               arrow = arrow(length = unit(3, "mm"), type = "closed"),
+               linewidth = 1.2, color = "#2ECC71") +
+  geom_segment(aes(x = 1, xend = 2, y = 0, yend = 0),
+               arrow = arrow(length = unit(3, "mm"), type = "closed"),
+               linewidth = 1.2, color = "#E74C3C") +
+  geom_segment(aes(x = 1, xend = 2, y = -1, yend = -1),
+               arrow = arrow(length = unit(3, "mm"), type = "closed"),
+               linewidth = 1.2, color = "#95A5A6") +
+  annotate("text", x = 2.2, y = 1,  label = "Positive", hjust = 0, size = 3.5) +
+  annotate("text", x = 2.2, y = 0,  label = "Negative", hjust = 0, size = 3.5) +
+  annotate("text", x = 2.2, y = -1, label = "Neutral",  hjust = 0, size = 3.5) +
+  annotate("text", x = 1.5, y = 1.8, label = "Relation Type",
+           fontface = "bold", size = 4) +
+  theme_void() +
+  xlim(0.8, 3.2)
+
+
+p_role <- ggplot() +
+  geom_point(aes(x = 1, y = 6), size = 4, color = "#3498DB") +
+  geom_point(aes(x = 1, y = 5), size = 4, color = "#F1C40F") +
+  geom_point(aes(x = 1, y = 4), size = 4, color = "#E74C3C") +
+  geom_point(aes(x = 1, y = 3), size = 4, color = "#95A5A6") +
+  geom_point(aes(x = 1, y = 2), size = 4, color = "#2ECC71") +
+  geom_point(aes(x = 1, y = 1), size = 4, color = "#8E44AD") +
+
+  annotate("text", x = 1.3, y = 6, label = "Authority",   hjust = 0, size = 3) +
+  annotate("text", x = 1.3, y = 5, label = "Mediator",    hjust = 0, size = 3) +
+  annotate("text", x = 1.3, y = 4, label = "Perpetrator", hjust = 0, size = 3) +
+  annotate("text", x = 1.3, y = 3, label = "Victim",      hjust = 0, size = 3) +
+  annotate("text", x = 1.3, y = 2, label = "Protagonist", hjust = 0, size = 3) +
+  annotate("text", x = 1.3, y = 1, label = "Helper",      hjust = 0, size = 3) +
+
+  annotate("text", x = 1, y = 6.8, label = "Role",
+           fontface = "bold", size = 4) +
+
+  theme_void() +
+  xlim(0.8, 3) +
+  ylim(0.5, 7)
+
+
+
+p_weight <- ggplot() +
+  geom_segment(aes(x = 1, xend = 2, y = 0), linewidth = 0.8, color = "grey40") +
+  geom_segment(aes(x = 1, xend = 2, y = -0.4), linewidth = 1.4, color = "grey40") +
+  geom_segment(aes(x = 1, xend = 2, y = -0.8), linewidth = 2.0, color = "grey40") +
+  annotate("text", x = 2.2, y = 0,   label = "0.04", hjust = 0, size = 3) +
+  annotate("text", x = 2.2, y = -0.4,label = "0.07", hjust = 0, size = 3) +
+  annotate("text", x = 2.2, y = -0.8,label = "0.10", hjust = 0, size = 3) +
+  annotate("text", x = 1.5, y = 0.6, label = "Weight",
+           fontface = "bold", size = 4) +
+  theme_void() +
+  xlim(0.8, 3)
+
+```
+
+```{r}
+ggsave("legend_relation.pdf", p_relation, width = 4, height = 1.5)
+ggsave("legend_role.pdf",     p_role,     width = 3, height = 2.5)
+ggsave("legend_weight.pdf",   p_weight,   width = 3, height = 1.8)
+```
+
+```{r}
+# Stage-wise network
+# 0-1) 鎖住原始 row order
+if (!".row" %in% names(edge_list)) {
+  edge_list <- edge_list %>% mutate(.row = row_number())
+}
+
+# 0-2) edge column
+from_col <- "Source"
+to_col   <- "Target"
+
+# 0-3) stage column 
+stage_col <- "Stage"
+
+# 0-4) 讓 Stage 顯示順序固定
+edge_list[[stage_col]] <- factor(edge_list[[stage_col]], levels = c(1,2,3))
+
+plot_story_stagewise <- function(story_id,
+                                 layout_algo = "fr",
+                                 niter = 2000) {
+
+  sub_nodes <- node_list %>% filter(Story_ID == story_id)
+  sub_edges <- edge_list %>% filter(Story_ID == story_id) %>% arrange(.row)
+
+  stages <- levels(sub_edges[[stage_col]])
+  if (is.null(stages)) stages <- sort(unique(sub_edges[[stage_col]]))
+
+  plot_one_stage <- function(stg) {
+    e <- sub_edges %>% filter(.data[[stage_col]] == stg)
+    if (nrow(e) == 0) {
+      return(ggplot() + theme_void() + labs(title = paste("Stage", stg, "(no edges)")))
+    }
+
+    g <- graph_from_data_frame(d = e, vertices = sub_nodes, directed = TRUE)
+    V(g)$degree <- degree(g, mode = "all")
+
+    ggraph(g, layout = layout_algo, niter = niter) +
+      geom_edge_link(aes(color = Relation_Type, width = Weight),
+                     arrow = arrow(length = unit(2, "mm"), type = "closed"),
+                     end_cap = circle(6, "mm"),
+                     alpha = 0.35) +
+      geom_node_point(aes(color = Role, size = degree)) +
+
+      scale_edge_color_manual(values = c("Positive"="#2ECC71", "Negative"="#E74C3C", "Neutral"="#95A5A6")) +
+      scale_color_manual(values = c("Authority"="#3498DB", "Mediator"="#F1C40F", "Perpetrator"="#E74C3C","Victim"="#95A5A6", "Protagonist"="#2ECC71", "Helper"="#8E44AD")) +
+      scale_edge_width(range = c(0.8, 2.5), guide = "none") +
+      scale_size_continuous(range = c(3, 8), guide = "none") +
+      theme_void() +
+      labs(title = paste0("Stage ", stg)) +
+      theme(
+        plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+        legend.position = "none",
+        plot.background = element_rect(fill = "white", color = NA),
+        panel.background = element_rect(fill = "white", color = NA),
+        panel.border = element_rect(color = "grey60", fill = NA, linewidth = 0.8)
+      )
+  }
+
+  p_list <- lapply(stages, plot_one_stage)
+
+  # 拼成三格（像 facet）
+  # 在每個 stage 圖中間插入空白 spacer
+  p_with_space <- list(
+    p_list[[1]],
+    plot_spacer(),      # ⬅️ 空白
+    p_list[[2]],
+    plot_spacer(),      # ⬅️ 空白
+    p_list[[3]]
+)
+
+  wrap_plots(p_with_space, nrow = 1,
+           widths = c(1, 0.15, 1, 0.15, 1)) +
+    plot_annotation(
+      title = paste0("Story: ", story_id),
+      theme = theme(plot.title = element_text(size = 13, face = "bold", hjust = 0.5))
+  )+
+    plot_annotation(title = paste0("Story: ", story_id),
+                    theme = theme(plot.title = element_text(size = 13, face = "bold", hjust = 0.5)))
+}
+
+
+
+```
+
+```{r}
+all_stories <- unique(node_list$Story_ID)
+
+for (sid in all_stories) {
+  p <- plot_story_stagewise(sid)
+  ggsave(paste0(sid, "_stagewise.png"), p, width = 12, height = 4, dpi = 300)
+  ggsave(paste0(sid, "_stagewise.svg"), p, width = 12, height = 4)
+}
+
+```
+
+```{r}
+# chain visulaization
+
+# edge_list 裡的欄位
+source_col <- "Source"   # 存 Node_ID
+target_col <- "Target"   # 存 Node_ID
+
+# node_list 裡的欄位
+node_id_col <- "Node_ID"
+role_col    <- "Role"
+
+plot_story_sequence <- function(story_id,
+                                show_stage_bands = TRUE,
+                                label_every_n = 1) {
+
+  e <- edge_list %>%
+    filter(Story_ID == story_id) %>%
+    arrange(.row) %>%
+    mutate(event_id = row_number())
+
+  if (nrow(e) == 0) {
+    return(ggplot() + theme_void() + labs(title = paste0("Story: ", story_id, " (no edges)")))
+  }
+
+  # 建立 character -> role 對照表
+  role_lookup <- node_list %>%
+    select(
+      Node_ID = !!sym(node_id_col),
+      Role    = !!sym(role_col)
+      ) %>%
+    distinct()
+
+  # 取出 from/to 欄位
+  e <- e %>%
+  mutate(
+    from_node = .data[[source_col]],
+    to_node   = .data[[target_col]],
+    Stage     = .data[[stage_col]]
+  ) %>%
+  left_join(role_lookup, by = c("from_node" = "Node_ID")) %>%
+  rename(from_role = Role) %>%
+  left_join(role_lookup, by = c("to_node" = "Node_ID")) %>%
+  rename(to_role = Role)
+
+  # y 軸：用節點出現順序（你也可以改成 alphabet 或 role 分組）
+  role_levels <- c("Victim", "Mediator", "Authority",
+                 "Helper", "Perpetrator", "Protagonist")
+
+  e <- e %>%
+    mutate(
+      from = factor(from_role, levels = role_levels),
+      to   = factor(to_role,   levels = role_levels)
+      )
+
+  # （可選）做 stage 區段底色，讓讀者一眼看到 stage 分界
+  stage_ranges <- e %>%
+    group_by(Stage) %>%
+    summarise(xmin = min(event_id) - 0.5,
+              xmax = max(event_id) + 0.5,
+              .groups = "drop")
+  
+  # 找出每個 stage 的結束位置（最後一個 event）
+  stage_boundaries <- stage_ranges %>%
+    arrange(xmax) %>%
+    slice(-n()) %>%        # 最後一個 stage 不需要畫線
+    mutate(x = xmax + 0.5)
+
+  p <- ggplot(e) +
+    (if (show_stage_bands) {
+      geom_rect(data = stage_ranges,
+                aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+                inherit.aes = FALSE,
+                alpha = 0.08)
+    }) +
+    
+    geom_vline(
+      data = stage_boundaries,
+      aes(xintercept = x),
+      linetype = "dashed",
+      linewidth = 0.6,
+      color = "grey40"
+      )+
+    
+    geom_segment(
+      aes(x = event_id, xend = event_id,
+          y = from, yend = to,
+          color = Relation_Type),   # ✅ 顏色
+      arrow = arrow(length = unit(2, "mm"), type = "closed"),
+      linewidth = 0.8, alpha = 0.35
+      ) +
+
+    # 可選：每 N 個事件標一個文字（避免太亂）
+    geom_text(
+      data = e %>% filter(event_id %% label_every_n == 0),
+      aes(x = event_id, y = from, label = event_id),
+      size = 2.6, vjust = -0.6
+    ) +
+
+    scale_x_continuous(breaks = e$event_id) +
+    scale_color_manual(
+      values = c("Positive"="#2ECC71", "Negative"="#E74C3C", "Neutral"="#95A5A6")
+      ) +
+    
+    theme_minimal(base_size = 11) +
+    theme(
+      panel.grid.major.y = element_line(alpha = 0.2),
+      panel.grid.minor = element_blank()
+    ) +
+    labs(
+      title = paste0("Sequence Diagram — Story: ", story_id),
+      x = "Event order",
+      y = "Node (Role)",
+      color = "Relation_Type"
+    )
+
+  # 在 x 軸上標 Stage 標籤
+  if (show_stage_bands) {
+    stage_labels <- stage_ranges %>%
+      mutate(x = (xmin + xmax) / 2)
+
+    p <- p + geom_text(
+      data = stage_labels,
+      aes(x = x, y = 1, label = paste0("Stage ", Stage)),
+      inherit.aes = FALSE,
+      vjust = -1.2,
+      fontface = "bold",
+      size = 3
+    )
+  }
+
+  p
+}
+```
+
+```{r}
+for (sid in all_stories) {
+  p_seq <- plot_story_sequence(sid, show_stage_bands = TRUE, label_every_n = 1)
+  ggsave(paste0(sid, "_sequence.png"), p_seq, width = 14, height = 7, dpi = 300)
+  ggsave(paste0(sid, "_sequence.svg"), p_seq, width = 14, height = 7)
+}
+
+```
+
+## RQ 1.
+
+```{r}
+calc_centrality <- function(graph) {
+  data.frame(
+    ID = V(graph)$name,
+    Role = V(graph)$Role,
+    Gender = V(graph)$Gender,
+    Culture = V(graph)$Culture,
+    Degree = degree(graph, mode="all"),
+    InDegree = degree(graph, mode="in"),
+    OutDegree = degree(graph, mode="out"),
+    Betweenness = betweenness(graph, directed=TRUE, normalized=TRUE),
+    Eigenvector = eigen_centrality(graph)$vector
+  )
+}
+
+df_metrics <- bind_rows(
+  calc_centrality(tw_net),
+  calc_centrality(kr_net),
+  calc_centrality(us_net)
+)
+
+# 聚合數據：依文化與角色計算平均中心性
+role_summary <- df_metrics %>%
+  group_by(Culture, Role) %>%
+  summarise(
+    Avg_Betweenness = mean(Betweenness),
+    Avg_Degree = mean(Degree),
+    .groups = "drop"
+  )
+role_summary
+```
+
+```{r}
+# 只看 Authority & Mediator 的中央性，分文化
+role_summary_AM <- df_metrics %>%
+  filter(Role %in% c("Authority", "Mediator")) %>%
+  group_by(Culture, Role) %>%
+  summarise(
+    Avg_Degree = mean(Degree, na.rm = TRUE),
+    Avg_Betweenness = mean(Betweenness, na.rm = TRUE),
+    Avg_Eigen = mean(Eigenvector, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  )
+
+role_summary_AM
+
+# 高中央性節點（用 Eigenvector 前 25%）的性別分布
+eig_thr <- quantile(df_metrics$Eigenvector, 0.75, na.rm = TRUE)
+
+
+high_power <- df_metrics %>%
+  filter(Eigenvector >= eig_thr)
+
+
+gender_power_AM <- high_power %>%
+  filter(Role %in% c("Authority", "Mediator")) %>%
+  count(Culture, Role, Gender) %>%
+  group_by(Culture, Role) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup()
+gender_power_AM
+```
+
+```{r}
+core_roles <- c("Authority", "Mediator", "Perpetrator", 
+                "Victim", "Helper", "Protagonist")
+role_bet <- df_metrics %>%
+  filter(Role %in% core_roles) %>%
+  group_by(Culture, Role) %>%
+  summarise(Avg_Bet = mean(Betweenness, na.rm = TRUE),
+            .groups="drop")
+
+culture_cols <- c(
+  "TW" = "lightblue",   
+  "KR" = "pink",   
+  "US" = "#E74C3C"    
+)
+
+p_bet <- ggplot(role_bet,
+                aes(x = Role, y = Avg_Bet, fill = Culture)) +
+  geom_bar(stat="identity", position="dodge") +
+  labs(title="Betweenness Centrality by Role",
+       y="Avg Betweenness") +
+  theme_minimal()+ scale_fill_manual(values = culture_cols)
+
+p_bet
+
+ggsave("between_role.png", p_bet, width = 8, height = 6)
+ggsave("between_role.svg", p_bet, width = 10, height = 8)
+
+```
+
+```{r}
+role_deg <- df_metrics %>%
+  filter(Role %in% core_roles) %>%
+  group_by(Culture, Role) %>%
+  summarise(Avg_Deg = mean(Degree, na.rm=TRUE),
+            .groups="drop")
+
+p_deg <- ggplot(role_deg,
+                aes(x = Role, y = Avg_Deg, fill = Culture)) +
+  geom_bar(stat="identity", position="dodge") +
+  labs(title="Degree Centrality by Role",
+       y="Avg Degree") +
+  theme_minimal()+scale_fill_manual(values = culture_cols)
+
+p_deg
+
+ggsave("degree_role.png", p_deg, width = 8, height = 6)
+ggsave("degree_role.svg", p_deg, width = 10, height = 8)
+```
+
+```{r}
+role_eigen <- df_metrics %>%
+  filter(Role %in% core_roles) %>%
+  group_by(Culture, Role) %>%
+  summarise(Avg_Eigen = mean(Eigenvector, na.rm=TRUE),
+            .groups="drop")
+
+p_eigen <- ggplot(role_eigen,
+                  aes(x = Role, y = Avg_Eigen, fill = Culture)) +
+  geom_bar(stat="identity", position="dodge") +
+  labs(title="Eigenvector Centrality by Role",
+       y="Avg Eigenvector") +
+  theme_minimal()+scale_fill_manual(values = culture_cols)
+
+p_eigen
+
+ggsave("eigen_role.png", p_eigen, width = 8, height = 6)
+ggsave("eigen_role.svg", p_eigen, width = 10, height = 8)
+```
+
+```{r}
+role_io <- df_metrics %>%
+  filter(Role %in% core_roles) %>%
+  group_by(Culture, Role) %>%
+  summarise(
+    Avg_In  = mean(InDegree, na.rm=TRUE),
+    Avg_Out = mean(OutDegree, na.rm=TRUE),
+    .groups="drop"
+  )
+
+p_out <- ggplot(role_io,
+                aes(x = Role, y = Avg_Out, fill = Culture)) +
+  geom_bar(stat="identity", position="dodge") +
+  labs(title="Out-Degree by Role", y="Avg Out-Degree") +
+  theme_minimal()+scale_fill_manual(values = culture_cols)
+
+p_out
+ggsave("outdegree_role.png", p_out, width = 8, height = 6)
+ggsave("outdegree_role.svg", p_out, width = 10, height = 8)
+
+p_in <- ggplot(role_io,
+               aes(x = Role, y = Avg_In, fill = Culture)) +
+  geom_bar(stat="identity", position="dodge") +
+  labs(title="In-Degree by Role", y="Avg In-Degree") +
+  theme_minimal()+scale_fill_manual(values = culture_cols)
+
+p_in
+ggsave("indegree_role.png", p_in, width = 8, height = 6)
+ggsave("indegree_role.svg", p_in, width = 10, height = 8)
+```
+
+```{r}
+library(tidyverse)
+
+# 檢查 Gender × Role × Culture
+gender_role_freq <- node_list %>%
+  filter(Role %in% c("Authority", "Mediator", "Perpetrator", "Victim",
+                     "Protagonist", "Helper")) %>%
+  count(Culture, Role, Gender) %>%
+  arrange(Culture, Role, desc(n))
+
+gender_role_freq
+
+gender_role_prop <- node_list %>%
+  filter(Role %in% c("Authority", "Mediator", "Perpetrator", "Victim",
+                     "Protagonist", "Helper", "Instigator", "Skeptic")) %>%
+  count(Culture, Role, Gender) %>%
+  group_by(Culture, Role) %>%
+  mutate(prop = n / sum(n)) %>%
+  arrange(Culture, Role, desc(prop))
+
+gender_role_prop
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# 1. Drop instigator / skeptic
+node_filtered <- node_list %>%
+  filter(!Role %in% c("Instigator", "Skeptic"))
+
+# 2. Gender color palette
+gender_cols <- c(
+  "M" = "dodgerblue",
+  "F" = "firebrick",
+  "U" = "seagreen3",
+  "NA" = "seagreen3"
+)
+
+# 3. Compute proportions by Culture × Role
+df_gender_prop <- node_filtered %>%
+  count(Culture, Role, Gender) %>%
+  group_by(Culture, Role) %>%
+  mutate(prop = n / sum(n)) %>%       # convert to proportion
+  ungroup()
+
+# 4. Plot (grouped bar, using proportions)
+p_gender_role_prop <- df_gender_prop %>%
+  ggplot(aes(x = Role, y = prop, fill = Gender)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.75)) +
+  facet_wrap(~ Culture, ncol = 1) +
+  scale_fill_manual(values = gender_cols) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +  # convert to %
+  theme_minimal(base_size = 13) +
+  labs(
+    title = "Gender Distribution (Proportion) Across Roles by Culture",
+    x = NULL,
+    y = "Proportion",
+    fill = "Gender"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(size = 15, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold")
+  )
+
+p_gender_role_prop
+
+ggsave("p_gender_role_prop.png", p_gender_role_prop, width = 8, height = 6)
+ggsave("p_gender_role_prop.svg", p_gender_role_prop, width = 10, height = 8)
+```
+
+## RQ2.
+
+```{r}
+dynamic_analysis_roles <- function(culture_code) {
+  
+  sub_edges <- edge_list %>% filter(grepl(culture_code, Story_ID))
+  sub_nodes <- node_list %>% filter(grepl(culture_code, Story_ID))
+  
+  stages_data <- list()
+  
+  for (s in 1:3) {
+    
+    current_edges <- sub_edges %>% filter(Stage <= s)
+    g_temp <- graph_from_data_frame(current_edges, vertices = sub_nodes, directed = TRUE)
+    
+    df_temp <- data.frame(
+      ID         = V(g_temp)$name,
+      Role       = V(g_temp)$Role,
+      Culture    = culture_code,
+      Stage      = s,
+      OutDegree  = degree(g_temp, mode = "out"),
+      InDegree = degree(g_temp, mode = "in"),
+      Degree     = degree(g_temp, mode = "all"),
+      Betweenness= betweenness(g_temp, directed = TRUE, normalized = TRUE),
+      Eigenvector= eigen_centrality(g_temp)$vector
+    )
+    
+    df_temp <- df_temp %>% filter(Role %in% core_roles)
+    
+    stages_data[[length(stages_data)+1]] <- df_temp
+  }
+  
+  bind_rows(stages_data)
+}
+
+df_dyn <- bind_rows(
+  dynamic_analysis_roles("TW"),
+  dynamic_analysis_roles("KR"),
+  dynamic_analysis_roles("US")
+)
+
+```
+
+```{r}
+p_rq2_outdegree_roles <- df_dyn %>%
+  group_by(Culture, Stage, Role) %>%
+  summarise(Avg_Out = mean(OutDegree, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = Stage, y = Avg_Out, color = Culture)) +
+  
+  geom_line(size = 1.3) +
+  geom_point(size = 3) +
+  
+  facet_wrap(~ Role, scales = "free_y") +
+  
+  scale_color_manual(values = culture_cols) +
+  
+  labs(title = "Dynamic Out-Degree Across Narrative Stages (Six Roles)",
+       x = "Narrative Stage",
+       y = "Average Out-Degree",
+       color = "Culture") +
+  
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(size = 15, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "bottom"
+  )
+
+p_rq2_outdegree_roles
+```
+
+```{r}
+p_rq2_indegree_roles <- df_dyn %>%
+  group_by(Culture, Stage, Role) %>%
+  summarise(Avg_In = mean(InDegree, na.rm = TRUE), .groups="drop") %>%
+  ggplot(aes(x = Stage, y = Avg_In, color = Culture)) +
+  geom_line(size = 1.3) +
+  geom_point(size = 3) +
+  facet_wrap(~ Role, scales = "free_y") +
+  scale_color_manual(values = culture_cols) +
+  labs(
+    title = "Dynamic In-Degree Across Narrative Stages (Six Roles)",
+    x = "Narrative Stage",
+    y = "Average In-Degree"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(size=12, face="bold"),
+    plot.title = element_text(size=15, face="bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "bottom"
+  )
+
+p_rq2_indegree_roles
+```
+
+```{r}
+p_rq2_eigen_roles <- df_dyn %>%
+  group_by(Culture, Stage, Role) %>%
+  summarise(Avg_Eigen = mean(Eigenvector, na.rm = TRUE), .groups="drop") %>%
+  ggplot(aes(x = Stage, y = Avg_Eigen, color = Culture)) +
+  geom_line(size = 1.3) +
+  geom_point(size = 3) +
+  facet_wrap(~ Role, scales = "free_y") +
+  scale_color_manual(values = culture_cols) +
+  labs(
+    title = "Dynamic Eigenvector Centrality Across Narrative Stages (Six Roles)",
+    x = "Narrative Stage",
+    y = "Avg. Eigenvector Centrality"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(size=12, face="bold"),
+    plot.title = element_text(size=13, face="bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "bottom"
+  )
+
+p_rq2_eigen_roles
+```
+
+```{r}
+p_rq2_bet_roles <- df_dyn %>%
+  group_by(Culture, Stage, Role) %>%
+  summarise(Avg_Bet = mean(Betweenness, na.rm = TRUE), .groups="drop") %>%
+  ggplot(aes(x = Stage, y = Avg_Bet, color = Culture)) +
+  geom_line(size = 1.3) +
+  geom_point(size = 3) +
+  facet_wrap(~ Role, scales = "free_y") +
+  scale_color_manual(values = culture_cols) +
+  labs(
+    title = "Dynamic Betweenness Across Narrative Stages (Six Roles)",
+    x = "Narrative Stage",
+    y = "Avg. Betweenness Centrality"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(size=12, face="bold"),
+    plot.title = element_text(size=13, face="bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "bottom"
+  )
+
+p_rq2_bet_roles
+```
+
+```{r}
+p_rq2_deg_roles <- df_dyn %>%
+  group_by(Culture, Stage, Role) %>%
+  summarise(Avg_Deg = mean(Degree, na.rm = TRUE), .groups="drop") %>%
+  ggplot(aes(x = Stage, y = Avg_Deg, color = Culture)) +
+  geom_line(size = 1.3) +
+  geom_point(size = 3) +
+  facet_wrap(~ Role, scales = "free_y") +
+  scale_color_manual(values = culture_cols) +
+  labs(
+    title = "Dynamic Degree Across Narrative Stages (Six Roles)",
+    x = "Narrative Stage",
+    y = "Avg. Degree Centrality"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(size=12, face="bold"),
+    plot.title = element_text(size=13, face="bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "bottom"
+  )
+
+p_rq2_deg_roles
+```
+
+```{r}
+role_cols <- c(
+  "Authority"    = "#3498DB",
+  "Mediator"     = "#F1C40F",
+  "Perpetrator"  = "#E74C3C",
+  "Victim"       = "#BDC3C7",
+  "Protagonist"  = "#2ECC71",
+  "Helper"       = "#8E44AD"
+)
+
+
+p_rq2_out <- df_dyn %>%
+  group_by(Culture, Stage, Role) %>%
+  summarise(Avg_Out = mean(OutDegree, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = Stage, y = Avg_Out, color = Role)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  facet_wrap(~ Culture, nrow = 1) +
+  scale_color_manual(values = role_cols) +
+  labs(
+    title = "Dynamic Role Activity Across Narrative Stages (OutDegree)",
+    x = "Narrative Stage",
+    y = "Average Out-Degree",
+    color = "Role"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    strip.text = element_text(size = 11, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right"
+  )
+
+p_rq2_out
+```
+
+```{r}
+p_rq2_in <- df_dyn %>%
+  group_by(Culture, Stage, Role) %>%
+  summarise(Avg = mean(InDegree, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = Stage, y = Avg, color = Role)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  facet_wrap(~ Culture, nrow = 1) +
+  scale_color_manual(values = role_cols) +
+  labs(
+    title = "Dynamic Role Activity Across Narrative Stages (In-Degree)",
+    x = "Narrative Stage",
+    y = "Average In-Degree",
+    color = "Role"
+  ) +
+  theme_minimal(base_size = 12)+
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    strip.text = element_text(size = 11, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right"
+  )
+
+p_rq2_in
+```
+
+```{r}
+p_rq2_deg <- df_dyn %>%
+  group_by(Culture, Stage, Role) %>%
+  summarise(Avg = mean(Degree, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = Stage, y = Avg, color = Role)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  facet_wrap(~ Culture, nrow = 1) +
+  scale_color_manual(values = role_cols) +
+  labs(
+    title = "Dynamic Role Activity Across Narrative Stages (Degree)",
+    x = "Narrative Stage",
+    y = "Average Degree",
+    color = "Role"
+  ) +
+  theme_minimal(base_size = 12)+
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    strip.text = element_text(size = 11, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right"
+  )
+
+p_rq2_deg
+```
+
+```{r}
+p_rq2_eig <- df_dyn %>%
+  group_by(Culture, Stage, Role) %>%
+  summarise(Avg = mean(Eigenvector, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = Stage, y = Avg, color = Role)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  facet_wrap(~ Culture, nrow = 1) +
+  scale_color_manual(values = role_cols) +
+  labs(
+    title = "Dynamic Role Influence Across Narrative Stages (Eigenvector)",
+    x = "Narrative Stage",
+    y = "Average Eigenvector Centrality",
+    color = "Role"
+  ) +
+  theme_minimal(base_size = 12)+
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    strip.text = element_text(size = 11, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right"
+  )
+
+p_rq2_eig
+```
+
+```{r}
+p_rq2_bet <- df_dyn %>%
+  group_by(Culture, Stage, Role) %>%
+  summarise(Avg = mean(Betweenness, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = Stage, y = Avg, color = Role)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  facet_wrap(~ Culture, nrow = 1) +
+  scale_color_manual(values = role_cols) +
+  labs(
+    title = "Dynamic Structural Power Across Narrative Stages (Betweenness)",
+    x = "Narrative Stage",
+    y = "Average Betweenness",
+    color = "Role"
+  ) +
+  theme_minimal(base_size = 12)+
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    strip.text = element_text(size = 11, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right"
+  )
+
+p_rq2_bet
+```
+
+```{r}
+ggsave("p_rq2_outdegree_roles.png", p_rq2_outdegree_roles, width = 8, height = 6)
+ggsave("p_rq2_outdegree_roles.svg", p_rq2_outdegree_roles, width = 10, height = 8)
+
+ggsave("p_rq2_indegree_roles.png", p_rq2_indegree_roles, width = 8, height = 6)
+ggsave("p_rq2_indegree_roles.svg", p_rq2_indegree_roles, width = 10, height = 8)
+
+ggsave("p_rq2_deg_roles.png", p_rq2_deg_roles, width = 8, height = 6)
+ggsave("p_rq2_deg_roles.svg", p_rq2_deg_roles, width = 10, height = 8)
+
+ggsave("p_rq2_eigen_roles.png", p_rq2_eigen_roles, width = 8, height = 6)
+ggsave("p_rq2_eigen_roles.svg", p_rq2_eigen_roles, width = 10, height = 8)
+
+ggsave("p_rq2_bet_roles.png", p_rq2_bet_roles, width = 8, height = 6)
+ggsave("p_rq2_bet_roles.svg", p_rq2_bet_roles, width = 10, height = 8)
+
+ggsave("p_rq2_out.png", p_rq2_out, width = 8, height = 6)
+ggsave("p_rq2_out.svg", p_rq2_out, width = 10, height = 8)
+
+ggsave("p_rq2_in.png", p_rq2_in, width = 8, height = 6)
+ggsave("p_rq2_in.svg", p_rq2_in, width = 10, height = 8)
+
+ggsave("p_rq2_deg.png", p_rq2_deg, width = 8, height = 6)
+ggsave("p_rq2_deg.svg", p_rq2_deg, width = 10, height = 8)
+
+ggsave("p_rq2_eigen.png", p_rq2_eig, width = 8, height = 6)
+ggsave("p_rq2_eigen.svg", p_rq2_eig, width = 10, height = 8)
+
+ggsave("p_rq2_bet.png", p_rq2_bet, width = 8, height = 6)
+ggsave("p_rq2_bet.svg", p_rq2_bet, width = 10, height = 8)
+```
+
+## RQ3.
+
+```{r}
+# 建立角色互動矩陣 (Role-to-Role Interaction Matrix)
+get_blockmodel <- function(sub_net) {
+  el <- igraph::as_data_frame(sub_net)
+  v_attr <- igraph::vertex_attr(sub_net)
+  
+  # 將 ID 替換為 Role
+  el$Source_Role <- v_attr$Role[match(el$from, v_attr$name)]
+  el$Target_Role <- v_attr$Role[match(el$to, v_attr$name)]
+  
+  # 計算互動頻率
+  role_mat <- el %>% count(Source_Role, Target_Role)
+  return(role_mat)
+}
+
+bm_tw <- get_blockmodel(tw_net) %>% mutate(Culture = "TW")
+bm_kr <- get_blockmodel(kr_net) %>% mutate(Culture = "KR")
+bm_us <- get_blockmodel(us_net) %>% mutate(Culture = "US")
+
+bm_all <- bind_rows(bm_tw, bm_kr, bm_us)
+```
+
+```{r}
+# heatmap of interactive pattern
+target_roles <- c("Authority", "Mediator", "Perpetrator", "Victim", "Protagonist", "Helper")
+
+bm_all_filtered <- bm_all %>%
+  filter(Source_Role %in% target_roles,
+         Target_Role %in% target_roles)
+
+p_rq3_heat <- ggplot(bm_all_filtered, 
+                     aes(x = Target_Role, y = Source_Role, fill = n)) +
+  geom_tile(color="white") +
+  facet_wrap(~Culture, ncol  = 1) +
+  scale_fill_gradient(low = "#D6EAF8", high = "#1B4F72") +
+  theme_minimal(base_size = 10) +
+  labs(
+    title = "Role-to-Role Interaction Pattern",
+    fill = "Frequency",
+    x = "Target Role",
+    y = "Source Role"
+  ) +
+  theme(
+    strip.text = element_text(size=10, face="bold"),
+    plot.title = element_text(size=13, face="bold", hjust=0.5)
+  )
+p_rq3_heat
+```
+
+```{r}
+# Create undirected collapsed networks per culture
+g_tw <- as.undirected(tw_net, mode = "collapse",
+                      edge.attr.comb = list(Weight="sum", "ignore"))
+
+g_kr <- as.undirected(kr_net, mode = "collapse",
+                      edge.attr.comb = list(Weight="sum", "ignore"))
+
+g_us <- as.undirected(us_net, mode = "collapse",
+                      edge.attr.comb = list(Weight="sum", "ignore"))
+
+set.seed(123)
+
+comm_tw <- cluster_louvain(g_tw, weights = E(g_tw)$Weight)
+comm_kr <- cluster_louvain(g_kr, weights = E(g_kr)$Weight)
+comm_us <- cluster_louvain(g_us, weights = E(g_us)$Weight)
+
+community_tw <- data.frame(
+  ID = V(g_tw)$name,
+  community = membership(comm_tw),
+  Role = V(g_tw)$Role,
+  Culture = V(g_tw)$Culture
+)
+
+community_kr <- data.frame(
+  ID = V(g_kr)$name,
+  community = membership(comm_kr),
+  Role = V(g_kr)$Role,
+  Culture = V(g_kr)$Culture
+)
+
+community_us <- data.frame(
+  ID = V(g_us)$name,
+  community = membership(comm_us),
+  Role = V(g_us)$Role,
+  Culture = V(g_us)$Culture
+)
+
+```
+
+```{r}
+plot_comm_role <- function(df, culture_name){
+  df %>%
+    count(community, Role) %>%
+    group_by(community) %>%
+    mutate(prop = n / sum(n)) %>%
+    ggplot(aes(x = Role, y = prop, fill = Role)) +
+    geom_bar(stat="identity") +
+    facet_wrap(~ community, scales="free_y") +
+    scale_fill_manual(values = role_cols) +
+    theme_minimal(base_size=12) +
+    labs(
+      title = paste("Role Composition within Communities -", culture_name),
+      y = "Proportion",
+      x = NULL
+    ) +
+    theme(
+      strip.text = element_text(size=12, face="bold"),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank()
+    )
+}
+
+p_comm_tw <- plot_comm_role(community_tw, "Taiwan")
+p_comm_kr <- plot_comm_role(community_kr, "Korea")
+p_comm_us <- plot_comm_role(community_us, "USA")
+
+p_comm_tw
+p_comm_kr
+p_comm_us
+```
+
+```{r}
+stage_presence <- edge_list %>%
+  select(Source, Target, Stage, Story_ID) %>%
+  pivot_longer(cols = c(Source, Target),
+               names_to = "pos", values_to = "ID") %>%
+  distinct(ID, Stage, Story_ID)
+
+constant_tw <- stage_presence %>%
+  filter(grepl("TW", Story_ID)) %>%
+  group_by(ID) %>% summarise(n_stages = n_distinct(Stage)) %>%
+  left_join(boundary_tw, by="ID") %>%
+  filter(n_stages >= 2)
+
+constant_kr <- stage_presence %>%
+  filter(grepl("KR", Story_ID)) %>%
+  group_by(ID) %>% summarise(n_stages = n_distinct(Stage)) %>%
+  left_join(boundary_kr, by="ID") %>%
+  filter(n_stages >= 2)
+
+constant_us <- stage_presence %>%
+  filter(grepl("US", Story_ID)) %>%
+  group_by(ID) %>% summarise(n_stages = n_distinct(Stage)) %>%
+  left_join(boundary_us, by="ID") %>%
+  filter(n_stages >= 2)
+
+plot_constant <- function(df, culture_name){
+  df %>%
+    ggplot(aes(x = Role, fill = Role)) +
+    geom_bar() +
+    scale_fill_manual(values = role_cols) +
+    theme_minimal(base_size = 13) +
+    labs(
+      title = paste("Constant Members Across Stages -", culture_name),
+      x = "Role",
+      y = "Count"
+    ) +
+    theme(axis.text.x = element_text(angle=45, hjust=1))
+}
+
+p_const_tw <- plot_constant(constant_tw, "Taiwan")
+p_const_kr <- plot_constant(constant_kr, "Korea")
+p_const_us <- plot_constant(constant_us, "USA")
+
+p_const_tw
+p_const_kr
+p_const_us
+```
+
+```{r}
+ggsave("p_rq3_heat.png", p_rq3_heat, width = 8, height = 6)
+ggsave("p_rq3_heat.svg", p_rq3_heat, width = 10, height = 8)
+
+ggsave("p_comm_tw.png", p_comm_tw, width = 8, height = 6)
+ggsave("p_comm_tw.svg", p_comm_tw, width = 10, height = 8)
+
+ggsave("p_comm_kr.png", p_comm_kr, width = 8, height = 6)
+ggsave("p_comm_kr.svg", p_comm_kr, width = 10, height = 8)
+
+ggsave("p_comm_us.png", p_comm_us, width = 8, height = 6)
+ggsave("p_comm_us.svg", p_comm_us, width = 10, height = 8)
+
+ggsave("p_const_tw.png", p_const_tw, width = 8, height = 6)
+ggsave("p_const_tw.svg", p_const_tw, width = 10, height = 8)
+
+ggsave("p_const_kr.png", p_const_kr, width = 8, height = 6)
+ggsave("p_const_kr.svg", p_const_kr, width = 10, height = 8)
+
+ggsave("p_const_us.png", p_const_us, width = 8, height = 6)
+ggsave("p_const_us.svg", p_const_us, width = 10, height = 8)
+```
+
+```{r}
+# Simplified Role-to-Role Interaction Graph (not filtering out low-interactive pattern)
+
+plot_simplified_blockmodel <- function(culture_name) {
+  
+  # 1. 強制使用 dplyr::filter 避免衝突
+  # 確保 edges 資料存在
+  
+  # 篩選資料 (使用 grepl 確保能抓到 TW01, TW02 等 ID)
+  sub_edges <- edge_list %>% dplyr::filter(grepl(culture_name, Story_ID))
+  sub_nodes <- node_list %>% dplyr::filter(grepl(culture_name, Story_ID))
+  
+  # 2. 將 Source/Target ID 替換為 Role
+  # 建立查找表 (Lookup table): ID -> Role
+  role_lookup <- setNames(sub_nodes$Role, sub_nodes$Node_ID)
+  
+  sub_edges$Source_Role <- role_lookup[sub_edges$Source]
+  sub_edges$Target_Role <- role_lookup[sub_edges$Target]
+  
+  # 移除找不到 Role 的邊 (避免 NA 錯誤)
+  sub_edges <- sub_edges %>% dplyr::filter(!is.na(Source_Role) & !is.na(Target_Role))
+  
+  # 3. 聚合：計算 Role 之間的互動總次數 (Total Weight)
+  agg_net <- sub_edges %>%
+    group_by(Source_Role, Target_Role, Relation_Type) %>%
+    summarise(Total_Weight = sum(as.numeric(Weight)), .groups = 'drop')
+  
+  # 4. 建立圖形物件
+  g_agg <- graph_from_data_frame(agg_net, directed = TRUE)
+  
+  # 5. 繪圖 (圓形佈局展示互動模式)
+  ggraph(g_agg, layout = "circle") + # 圓形佈局
+    
+    # --- 邊 (Edges) ---
+    # 使用 geom_edge_fan: 自動判斷是否需要彎曲
+    geom_edge_fan(aes(width = Total_Weight, color = Relation_Type), 
+                  arrow = arrow(length = unit(3, 'mm'), type = "closed"), 
+                  end_cap = circle(10, 'mm'), # 增加距離，讓箭頭停在空心圓外
+                  spread = 0.7, # 控制曲線分開的程度
+                  alpha = 0.5) +
+    
+    # --- 節點 (Nodes) ---
+    # shape=21 是實心圓但有邊框。
+    # fill="white" 讓它看起來是空心的 (且能遮擋背後的線)
+    # stroke=2 設定邊框粗細
+    geom_node_point(shape = 21, size = 10, fill = "white", color = "black", stroke = 1) +
+    
+    # --- 標籤 (Labels) ---
+    # 黑色字體，放在圓圈中間
+    geom_node_text(aes(label = name), color = "black", fontface = "bold", size = 2.5) +
+    
+    # --- 視覺映射 ---
+    scale_edge_width(range = c(0.8, 2.5)) + 
+    scale_edge_color_manual(values = c("Positive"="#2ECC71", "Negative"="#E74C3C", "Neutral"="#95A5A6")) +
+    
+    # --- 主題與背景 ---
+    theme_void() +
+    labs(title = paste(culture_name)) +
+    theme(
+      plot.title = element_text(size = 12, face = "bold", hjust = 0.5, color = "black"),
+      plot.background = element_rect(fill = "white", color = NA), # 強制白底
+      panel.background = element_rect(fill = "white", color = NA),
+      legend.position = "bottom",
+      legend.title = element_text(size = 6, face = "bold"),
+      legend.text = element_text(size = 6),
+    )
+}
+
+# 執行並輸出三張簡化圖
+p_block_tw <- plot_simplified_blockmodel("TW")
+p_block_kr <- plot_simplified_blockmodel("KR")
+p_block_us <- plot_simplified_blockmodel("US")
+
+print(p_block_tw)
+print(p_block_kr)
+print(p_block_us)
+```
+
+```{r}
+# Simplified Role-to-Role Interaction Graph (filtering out low-interactive pattern)
+
+plot_simplified_blockmodel_clean <- function(culture_name) {
+  
+  # 1. 資料準備 (與之前相同)
+  sub_edges <- edge_list %>% dplyr::filter(grepl(culture_name, Story_ID))
+  sub_nodes <- node_list %>% dplyr::filter(grepl(culture_name, Story_ID))
+  
+  role_lookup <- setNames(sub_nodes$Role, sub_nodes$Node_ID)
+  sub_edges$Source_Role <- role_lookup[sub_edges$Source]
+  sub_edges$Target_Role <- role_lookup[sub_edges$Target]
+  
+  sub_edges <- sub_edges %>% dplyr::filter(!is.na(Source_Role) & !is.na(Target_Role))
+  
+  # 2. 聚合與過濾 (關鍵步驟！)
+  # 我們計算每個 Role 對 Role 互動的總強度
+  agg_net <- sub_edges %>%
+    group_by(Source_Role, Target_Role, Relation_Type) %>%
+    summarise(Total_Weight = sum(as.numeric(Weight)), .groups = 'drop') %>%
+    # 過濾掉太微弱的連結 (例如 Weight < 3)，只顯示主要互動模式
+    filter(Total_Weight >= 3)
+  
+  # 3. 建立圖形物件
+  g_agg <- graph_from_data_frame(agg_net, directed = TRUE)
+  
+  # 4. 繪圖
+  ggraph(g_agg, layout = "circle") + 
+    
+    # --- 邊 (Edges) ---
+    # 使用 geom_edge_fan，並增加透明度
+    geom_edge_fan(aes(width = Total_Weight, color = Relation_Type), 
+                  arrow = arrow(length = unit(4, 'mm'), type = "closed"), 
+                  end_cap = circle(11, 'mm'), # 稍微加大距離，讓箭頭不要碰到圓圈
+                  spread = 0.8,               # 讓曲線分開一點
+                  alpha = 0.5) +              # 透明度，重疊時才不會變成一坨色塊
+    
+    # --- 節點 (Nodes) ---
+    # 關鍵修正：使用 shape = 21 (可填充顏色的圓)
+    # fill = "white" (遮擋背後的線), color = "black" (黑色邊框)
+    geom_node_point(shape = 21, size = 10, fill = "white", color = "black", stroke = 1) +
+    
+    # --- 標籤 (Labels) ---
+    geom_node_text(aes(label = name), color = "black", fontface = "bold", size = 2.5) +
+    
+    # --- 視覺映射 ---
+    scale_edge_width(range = c(0.8, 3)) + 
+    scale_edge_color_manual(values = c("Positive"="#2ECC71", "Negative"="#E74C3C", "Neutral"="#95A5A6")) +
+    
+    # --- 主題與背景 ---
+    theme_void() +
+    labs(title = paste(culture_name)) +
+    theme(
+      plot.title = element_text(size = 12, face = "bold", hjust = 0.5, color = "black"),
+      plot.background = element_rect(fill = "white", color = NA),
+      legend.position = "bottom",
+      legend.title = element_text(size = 6, face = "bold"),
+      legend.text = element_text(size = 6),
+      legend.key.width = unit(1, "cm"),
+    )
+}
+
+# 執行並輸出
+p_block_tw_clean <- plot_simplified_blockmodel_clean("TW")
+p_block_kr_clean <- plot_simplified_blockmodel_clean("KR")
+p_block_us_clean <- plot_simplified_blockmodel_clean("US")
+
+print(p_block_tw_clean)
+print(p_block_kr_clean)
+print(p_block_us_clean)
+```
+
+```{r}
+
+ggsave("TW_Block.png", p_block_tw, width = 8, height = 6, dpi = 300)
+ggsave("KR_Block.png", p_block_kr, width = 8, height = 6, dpi = 300)
+ggsave("US_Block.png", p_block_us, width = 8, height = 6, dpi = 300)
+
+ggsave("TW_Block_filtered.png", p_block_tw_clean, width = 8, height = 6, dpi = 300)
+ggsave("KR_Block_filtered.png", p_block_kr_clean, width = 8, height = 6, dpi = 300)
+ggsave("US_Block_filtered.png", p_block_us_clean, width = 8, height = 6, dpi = 300)
+```
